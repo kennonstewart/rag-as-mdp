@@ -1,0 +1,169 @@
+\documentclass[fleqn,10pt]{formatting/olplainarticle}
+\usepackage[english]{babel}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{definition}{Definition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{corollary}{Corollary}[section]
+\title{RAG as Partially-Observed Markov Decision Process [DRAFT]}
+
+\author[1]{Kennon Stewart}
+\affil[1]{Second Street Labs; Detroit, MI, USA}
+
+\keywords{reterieval augmented generation, chain-of-thought, markov decision process}
+
+\begin{abstract}
+We formalize multi-hop reasoning as an optimal control problem over discrete information states. 
+\end{abstract}
+
+\begin{document}
+
+\flushbottom
+\maketitle
+\thispagestyle{empty}
+
+\section{Introduction}
+
+Retrieval-augmented generation is known to improve the quality and accuracy of generated answers. Query-answering (QA) systems are particularly effective for inference when factual accuracy is of utmost importance. In this case, the agent needs to not only effectively retrieve the proper information, but sufficiently refine its information state just enough to generalize for future events. The agent-state not only contains the information required for the agent to make decisions, but also determines the point at which the agent stops its reasoning.
+
+The user requires not only a response, but a rationale for its answer. Entropy is a natural choice for measuring the sufficiency of the generated response with respect to some latent true response. This latent true response is the answer that minimizes the entropy with respect to the query. The ideal answer returned should then align strongly with the latent ideal in terms of information content. The difference in information should be minimal within some predefined confidence level.
+
+The ideal agent should also consider the cost of its actions. Production systems may query information, reflect and consolidate the substrate, or perform any number of specialized actions. Each of these have an associated cost (latency, water used for inference, cloud compute costs), including the cost to return the answer. Some actions (querying a database) will cost more than others (inductive reasoning). These cost functions shape the control objective and induce a tradeoff between information and efficiency.
+
+The agent implicitly chooses stopping time$\tau$. This is a statistic estimating the true number of iterations required to reach a minimally sufficient reasoning substrate. This acts as an internal timeline for reasoning, and indicates when agent efficiency falls short.
+
+\subsection{Contributions}
+We make three contributions:
+\begin{enumerate}
+\item We frame agentic RAG as an MDP over packetized information state with an optimal stopping time.
+\item We define the reasoning substrate of multi-hop reasoning as the approximate information state of a Markov Decision Process.
+\item We explicitly define the RAG process as one of finding the optimal stopping time. We formalize disparate and experimental multi-hop reasoning methods under a single control-theoretic framework.
+\end{enumerate}
+
+\section{Background}
+\label{sec:background}
+
+\subsection{RAG Over Artifacts}
+\label{subsec:rag-over-artifacts}
+There is a strong body of work that demonstrates the use of reasoning over intermediate artifacts. The artifacts, called substrates take the forms from vector embeddings to knowledge graphs. Methods like DGRAG exploit a hybrid edge–cloud architecture to maintain distributed knowledge graphs and subgraph summaries across host machines, which we can interpret as forming an approximate evidence graph $G_t$ within an information state $Z_t$.  These systems provide strong empirical evidence that reasoning over artifacts supports distributed computation, but they do not specify conditions under which their evolving graph substrate is sufficient for prediction and reward evaluation in the sense of an information state, nor do they analyze when workers can be swapped without changing the policy
+
+Zhou et al.’s hybrid edge–cloud approach is notable in that the edge agent iteratively decides between reasoning with its local internal state and escalating harder queries to a global model.  In contrast, our method characterizes the agent-state as an external, packetized information state $Z_t = (q, G_t, c_t)$ that is sufficient for reasoning without reference to any additional internal memory, making the executing agents themselves interchangeable.
+
+In the case of DGRAG, as with all substrates, we assume that the agent operates with partial-information. The authors don't formalize this as a Markov Decision Process, but do acknowledge some decision-making to determine the need for information retrieval from other edge-based agents. Our method explicitly defines the conditions under which such a reasoning substrate is sufficient to qualify as an information state. Requirements are described in the following sections.
+
+Graph-augmented LLM agents collaboratively generate and update knowledge graphs as a shared substrate for planning and tool use, but individual agents typically maintain additional internal state beyond this graph.  From our perspective, their shared graph can be viewed as an evolving evidence graph \(G_t\), yet it is not treated as a complete information state, and the agents are not designed to be stateless policy evaluators over a packetized \(Z_t\).  Our formulation closes this gap by treating \(Z_t = (q, G_t, c_t)\) as the agent-state and requiring all decision-relevant information to live in this packet. 
+
+We instead formalize our process as a specific case of graph-augmented question-answer model where the agent-state $Z_t$ is itself the graph.
+
+\subsection{(Partially-Observed) Markov Decision Processes and Belief States}
+\label{subsec:partial-mdp-and-belief-states}
+
+Markov Decision Processes (MDPs) model the decision-making process over a sequence of discrete indices. We model the process by an agent that iteratively takes some action and updates its state. At time $t,$ there is a system in state $X_t$ and the agent chooses an action $U_t$ according to some deterministic rule, called a control policy $U_t = \pi_{t}(X_t).$
+
+The agent's information state at a particular period is $\pi_{t}$ is the compressed form of the agent's entire action-state history. It is iteratively refined through the agent developing a stronger notion of the data-generating process and the amount of noise added to its observations. 
+
+A popular option for information state is the belief state. The state is refined through Bayesian analysis where the posterior of an period is the prior for the subsequent period. But the method is not necessarily perfect. For one, the belief state requires optimizing an $|\mathcal{S}|$-continuous simplex, making estimate precision a concern sequentially. And the method also needs perfect prior information in order to properly refine the belief state.
+
+The system is Markov if it satisfies the Markov rule, $P(X_{t+1}|X_{0:t},U_{0:t})=P(X_{t+1}|X_t,U_t),$ and models controlled stochastic processes. The ideal agent makes an optimal decision based solely on the current state $X_t.$ When conditioned on the system's state, the future is conditionally independent of the past. But the agent is not guaranteed to have complete information of the state.
+
+We follow the POMDP defintion used by Yang et al. (\cite{Yang_Zhang_Amice_Li_Tedrake_2022}). A partially-defined Markov Decision Process is defined as a state $<S,A,\phi,r,\Omega,),\gamma>$ where $S$ is the space of all possible states, $A$ is the space of all possible actions, $\phi$ is the state transition function $\phi=$. The environment variables include $O,$ which is the space of possible observations/rewards, and $\gamma$ is the discount factor in the case of an approximate information state. 
+
+Partially-observed Markov Decision Processes occur when some aspect of the state is hidden to the agent. When operating under uncertainty, the agent receives some noisy signal $P(Y_t|X_t,U_{t-1}),$ and the noise forces the agent to act under uncertainty. The  next state is then chosen according to some stochastic control policy that models distributions over the state space. These distributions are conditioned on a compressed version of the agent's complete action-state history, which is maintained in an information state. The belief state $\pi_{t}(x)=P(X_t=x | X_{1:t-1},U_{1:t-1})$ is used to model state $U_t=\mu_{t}(\pi_{t}).$
+
+An alternative to the belief state, and its requirement of perfect information, is the agent-state based control policy (\cite{Sinha_Mahajan_2024, Subramanian_Sinha_Seraj_Mahajan_2020}). The agent-state relaxes the requirement of perfect information with two alternative constraints.
+
+\subsection{Stopping Time Partially-Observed Markov Decision Processes}
+
+Look at Krishnamurthy Chapter 13: Structural Results for Stopping-Time POMDPs
+
+\subsection{Agent-State Based Policies}
+\label{subsec:agent-state-based-policies}
+
+Belief states are a popular and well-characterized method for compressing relevant information. They are a sequence of sufficient statistics $\pi_t=P(X_t|Y_{1:t},U_{1:t-1})$ (\cite{Aström_1965}) that replace the complete action-state history. Though a compression of state history is desirable, the continuous simplex in which it lives is not. They also require exact Bayesian filtering, meaning perfect information of the data-generating process. This includes the intial state. Such a barrier is particularly prohibitive when the timeline is potentially unbounded, as with production data streams.
+
+We instead formalize our process as a specific case of graph-augmented LLMs in which the agent-state \(Z_t = (q, G_t, c_t)\) is a packetized evidence graph together with the query and a confidence summary, and all epistemic content resides in this packet rather than in an internal hidden state of the agent.  In this framing, the agent acts only as a naive policy executor \(\pi(Z_t)\), which enables sequential, queue-based processing of information states and allows the number and identity of workers to scale up and down arbitrarily without changing the induced policy.  Under the sufficiency conditions discussed later, the process index and the information state align, so distributed execution affects cost and latency but not semantic behavior.
+
+\begin{definition}[Agent-State Based Policy]
+Assume the initial state of the agent $Z_1=\phi_0(Y_1)$ is updated recursively such that $Z_{t+1}=\phi(Z_t,Y_{t+1},A_t)$ for all indices $i \in \mathbb{N}$. In the case of a deterministic control law, the agent chooses action $A_t=\pi_t(Z_t)$ or using a stochastic control law $A \sim \pi_t(Z_t),$ then the policy $\pi_t$ is an agent-state based policy.
+\end{definition}
+
+\begin{definition}[Information State]
+An agent-state is an information state if it satisfies two requirements. The agent-state must be sufficient for prediction $P(Z_{t+1}|H_{t},A_{t})=P(Z_{t+1}|Z_t,A_t)$ and sufficient for evaluation $E[R_t|H_t,A_t]=E[R_t|Z_t,A_t]$. An optimal policy is then $A_{t}=\pi_{t}(Z_t).$
+\end{definition}
+
+The authors define informational sufficiency (the Markov Property) in relation to the decision-theoretic constraints that prevent any sort of advantage due to action-state history from indices $1:(t-1).$ This conveniently forms a basis for the past's independence of the future when conditioned on the present state.
+
+\subsection{Information-Theoretic Background}
+\label{subsec:partial-mdp-and-belief-states}
+
+Decision-theoretic sufficiency can be loosely understood in information-theoretic terms. An agent-state that is probabilistically optimal with respect to rewards and future states also preserves the appropriate information with respect to the future.
+
+The uncertainty of a random variable is described by the Shannon entropy, $H(X)=-\sum_{x}P(X=x)\log{P(X=x)}$. The information-theoretic notion of sufficiency can partly be described by $H(X_{t+1}|Z_{t},A_{t}),$ the agent's information about its reward and its state conditioned on its current state. The comparator, the information of the next index conditioned on the \textit{whole history} is similarly $H(X_{t+1}|H_{t},A_{t}).$ Decision theoretic sufficiency implies a sufficiency of information $H(X_{t+1}|Z_{t},A_{t})=H(X_{t+1}|H_{t},A_{t}).$
+
+\begin{lemma}
+An agent state that achieves decision-theoretic sufficiency is information-theoretically sufficient with respect to future states and rewards.
+\end{lemma}
+
+The agent-state is only sufficient for reasoning when the predictive uncertainty is equal to that when given the realized sequence of actions. This strongly mirrors the intuition behind the decision-theoretic constraints. 
+
+We can similarly describe constraints on the bounds of relevance. For an optimal control policy, the mutual information between the agent state and future states/rewards $I(Z_{t};X_{t+1},R_{t}|A_{t})$ is high.  It acts like a penalty for unnecessary information from the agent history. Relevant information with regard to future states should be extracted and compressed. This aligns strongly with the Information Bottleneck principle presented by Tishby (\cite{Tishby_Pereira_Bialek_2000}).
+
+It need be said that the loss of information is not necessarily a loss to the agent's trajectory. Sufficient compression preserves the relevance (conditional mutual information) described above, ensuring sufficient information with regard to the future. But compression is often not perfect. In these cases, an approximate information state can be achieved under mild information-theoretic constraints.
+
+The belief state is an ideal information state when information of a system is perfect and compute power abounds. But for realistic scenarios of imperfect information, or imperfect compression, an approximate information state is still attainable.
+
+\section{The Problem}
+We consider the problem of question-answer systems. The user presents a query $q$ and confidence level $\varepsilon$ and the model returns the reasoning substrate and response $(E_{\tau}, r).$ Reasoning uses packetized state $(q,E_t,\varepsilon)$ where $E_t$ is a recursively updateable agent-state. The agent executes 
+
+We follow Krishnamurthy's definition of a Markov Decision Process as a tuple of 5 random variables:
+
+In episode $t \in \mathbb{N}$, the state of the packet transitions to  $S_t,$ in our case the state at time $t$ is the minimal sufficient subgraph at time $t,$ which is unobserved. The agent then observes a new observation $o_t$ to which it must respond. In our system, the agent identifies its own next state $o_t$ the next observation identifying missing information from the evidence graph required to reach closure. The agent then chooses an action $a_t \in \{ \verb|retrieve|, \verb|reflect|, \verb|return|\}$ and receives the corresponding reward $r_t$ as dictated by the reward function. In the case of the question-answer process, the reward is entropy reduction $\Delta_{t}=H_{t+1}-H_t.$
+
+An agent needs to reach some sufficient condition in order to return a desirable response. We first define the objective function used to refine the control policy over the sequence of realized events.
+
+In the scope of this problem, we balance the quality of inference against the computational feasibility of reaching closure at stopping time $\tau$,
+$\mathbb{E}\left[u(G^*, G_\tau) - \lambda \sum_{t<\tau} c(a_t)\right].$ The stopping time is entirely determined by the user's confidence level input, which is the maximum amount of entropy required for a given answer, $H(\text{latent correct answer} | \text{generated answer}, G_t).$ 
+
+But every action has a cost. The cost of an action at state t is $c(a_t, S_t)$ is arbitrary, but can be measured in tokens, latency, or the cost to query a database.
+
+\section{Experiments}
+
+Our experiments, unlike those of the reAct paper, we evaluate the agent as the optimizer in a decision-theoretic control problem.
+
+Policy Ablations:
+\begin{itemize}
+    \item Fixed Reasoning Horizon: perform a fixed $k$ reasoning steps and return the response. Vary the value of $k.$
+    \item Sufficiency via Entropy: maintain a posterior over candidate answer nodes, which would need to be exactly computable in this synthetic environment. The stopping condition is when entropy falls below a certain baseline.
+    \item Sufficiency via Posterior Analysis:
+    \item Sufficiency via Return-on-Investment: Estimate $\frac{V(t)}{Q(Z_{t},a)}$ using fitted value iteration when $\text{max}_aQ(Z_t, \text{return}) \geq \text{max}_aQ(Z_t, \text{retrieve})$
+    \item Changing the (Approximate) Information State: Change $G_t$ into some compressed $\nu(G_t)$ (top-k nodes in terms of relevance, etc) to test whether the reasoning substrate is the decision-theoretic object
+    \item Worker Interchangeability: we vary the worker between each iteration to test the sufficiency of the information state and our theory that the worker is interchangeable. We measure the distribution of action choices to evaluate sufficiency of information state.
+\end{itemize}
+
+We then provide the accuracy-cost curve that demonstrates the accuracy of the returned response against the cost required to get it.
+
+Let's try abnd evaluate the stopping time directly? Like plot the posterior over a series of episodes/periods/steps and watch it descend. Does entropy, indeed, act as a submartingale?
+
+Visuals to nail down:
+\begin{itemize}
+    \item Sufficiency gap: $\Delta_t = \big| \mathbb{E}[R_t\mid H_t, A_t] - \mathbb{E}[R_t\mid Z_t, A_t]\big|$ (estimable here because you control the generative process).
+    \item Self-prediction gap: distance between $P(Z_{t+1}\mid H_t,A_t)) and (P(Z_{t+1}\mid Z_t,A_t)$ (empirical TV / KL).
+    \item Compression loss curves: performance vs compression rate $|\tilde G_t|/|G_t|$.
+\end{itemize}
+
+reAct paper:
+\begin{itemize}
+    \item the action space is undefined and the agent is given pretty much free reign. it can perform search, database queries, etc.
+    \item the state isn't a geometric object (tree, graph) and so it's less amenable to structured topological analysis.
+    \item they don't explicitly define a policy (which is decided by the LLM itself) and so they can't perform ablations like the top-k steps, entropy estimation, etc.
+\end{itemize}
+
+A distinguishing factor is that the authors don't necessarily decide what is \textit{what information is relevant with regard to decision-making.} We specifically analyze the trace to analyze the information worth learning.
+
+I can also say that we really do provide a synthetic playground over which the agent does its performance. The answer distribution, evidence structure, and noise generation is determined by the analyst and so I'm able to calculate the true posterior entropy, value of information, and stopping time sufficiency.
+
+\section{Acknowledgments}
+To the City of Detroit. Except DTE.
+
+\bibliography{rag-as-mdp}
+
+\end{document}
