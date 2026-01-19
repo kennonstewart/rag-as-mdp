@@ -113,8 +113,8 @@ class RAGEnvironment(gym.Env):
         reward = reward_from_entropy_change(prev_entropy, next_entropy, action_cost)
         self.current_episode.reward_history.append(reward)
 
-        terminated = action == 2
-        truncated = self.t >= self.max_steps
+        terminated = bool(action == 2)
+        truncated = bool(self.t >= self.max_steps)
 
         terminated_reason = "return" if terminated else ("time_limit" if truncated else "running")
         info = self._get_info(terminated_reason=terminated_reason, action_cost=action_cost)

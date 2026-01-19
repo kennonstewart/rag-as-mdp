@@ -1,0 +1,18 @@
+{
+  "policy": "dspy_react",
+  "episodes": 200,
+  "seed": 0,
+  "max_steps": 5,
+  "trajectories": true,
+  "action_costs": {
+    "retrieve": 1.0,
+    "reflect": 0.2,
+    "return": 0.0
+  },
+  "timestamp": "2026-01-19T00:36:43.332947Z",
+  "python_version": "3.13.9",
+  "lm_provider": "openai",
+  "lm_model": "gpt-4o-mini",
+  "temperature": 0.2,
+  "max_tokens": 256
+}

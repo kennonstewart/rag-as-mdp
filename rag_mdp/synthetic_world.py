@@ -19,6 +19,8 @@ class SyntheticWorld:
         locations: Optional[List[str]] = None,
         animals: Optional[List[str]] = None,
         colors: Optional[List[str]] = None,
+        noisy_retrieval_prob: float = 0.0,
+        reflect_prune: bool = False,
     ) -> None:
         self.rng = np.random.default_rng(seed)
 
@@ -28,6 +30,8 @@ class SyntheticWorld:
 
         self.spec = self._build_world_spec()
         self.entity_to_id, self.id_to_entity = self._build_entity_index()
+        self.noisy_retrieval_prob = noisy_retrieval_prob
+        self.reflect_prune = reflect_prune
 
     def _build_world_spec(self) -> WorldSpec:
         location_to_animal: Dict[str, str] = {}
@@ -84,6 +88,9 @@ class SyntheticWorld:
         )
 
     def retrieve_evidence(self, episode: Episode, G_t: nx.DiGraph) -> Optional[EvidenceItem]:
+        if self.noisy_retrieval_prob > 0.0:
+            if float(self.rng.random()) < self.noisy_retrieval_prob:
+                return self._sample_noisy_evidence()
         if not self._has_edge(G_t, episode.location, episode.animal, "lives_in"):
             return EvidenceItem(episode.location, episode.animal, "lives_in")
         if not self._has_edge(G_t, episode.animal, episode.color, "has_color"):
@@ -91,7 +98,16 @@ class SyntheticWorld:
         return None
 
     def consolidate_graph(self, G_t: nx.DiGraph) -> nx.DiGraph:
-        # No-op in Phase 1; placeholder for future consolidation logic.
+        if self.reflect_prune:
+            to_remove = [
+                (src, dst)
+                for src, dst, data in G_t.edges(data=True)
+                if data.get("relation") not in {"lives_in", "has_color"}
+            ]
+            for src, dst in to_remove:
+                if G_t.has_edge(src, dst):
+                    G_t.remove_edge(src, dst)
+        # Default is a no-op; placeholder for future consolidation logic.
         return G_t
 
     def add_evidence(self, G_t: nx.DiGraph, evidence: EvidenceItem) -> nx.DiGraph:
@@ -167,6 +183,29 @@ class SyntheticWorld:
                 best_t = t
 
         return best_t
+
+    def has_answer_evidence(self, episode: Episode, G_t: nx.DiGraph) -> bool:
+        """Return True if evidence contains the correct answer edge."""
+        return self._has_edge(G_t, episode.animal, episode.color, "has_color")
+
+    def compression_ratio(self, episode: Episode, G_t: nx.DiGraph) -> float:
+        """Compute edge compression ratio relative to ground truth graph."""
+        gt_edges = max(len(episode.ground_truth_graph.edges), 1)
+        return len(G_t.edges) / gt_edges
+
+    def set_rng(self, seed: Optional[int]) -> None:
+        """Reset the RNG for worker-specific variability."""
+        if seed is None:
+            return
+        self.rng = np.random.default_rng(seed)
+
+    def _sample_noisy_evidence(self) -> EvidenceItem:
+        entities = list(self.entity_to_id.keys())
+        src = self.rng.choice(entities)
+        dst = self.rng.choice(entities)
+        if src == dst:
+            dst = self.rng.choice(entities)
+        return EvidenceItem(str(src), str(dst), "irrelevant")
 
     @staticmethod
     def _has_edge(G_t: nx.DiGraph, src: str, dst: str, relation: str) -> bool:

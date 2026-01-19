@@ -1,8 +1,11 @@
 gymnasium
 stable-baselines3
+dspy
+openai
 numpy
 networkx
 pandas
 matplotlib
 seaborn
 pytest
+pyyaml

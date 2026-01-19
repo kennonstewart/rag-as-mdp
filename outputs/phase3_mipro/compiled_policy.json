@@ -1,0 +1,48 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Given the fields `query_text`, `evidence_summary`, `entropy`, `step`, `confidence_threshold`, produce the fields `action`.",
+      "fields": [
+        {
+          "prefix": "Query Text:",
+          "description": "${query_text}"
+        },
+        {
+          "prefix": "Evidence Summary:",
+          "description": "${evidence_summary}"
+        },
+        {
+          "prefix": "Entropy:",
+          "description": "${entropy}"
+        },
+        {
+          "prefix": "Step:",
+          "description": "${step}"
+        },
+        {
+          "prefix": "Confidence Threshold:",
+          "description": "${confidence_threshold}"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Action:",
+          "description": "One of: retrieve, return."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.13",
+      "dspy": "3.1.0",
+      "cloudpickle": "3.1"
+    }
+  }
+}

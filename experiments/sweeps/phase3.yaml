@@ -1,0 +1,28 @@
+output:
+  name: phase3
+  root: outputs/sweeps
+
+fixed:
+  episodes: 200
+  max_steps: 5
+  trajectories: true
+  skip_check_env: true
+  lm_provider: openai
+  lm_model: gpt-4o-mini
+  temperature: 0.2
+  max_tokens: 256
+  compiled_path: outputs/phase3_mipro/compiled_policy.json
+
+grid:
+  policy: ["fixed", "sb3_dqn", "fqi_roi", "dspy_optimized"]
+  k: [2]
+  timesteps: [5000]
+  seed: [0]
+
+postprocess:
+  analyze: true
+  plot: true
+  summary_outdir: outputs/sweeps/phase3/summary
+  figures_outdir: outputs/sweeps/phase3/figures
+  per_run_plots: true
+  plot_entropy: true

@@ -2,16 +2,26 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
+import sys
 from typing import Dict, List
 
 from gymnasium.wrappers import RecordEpisodeStatistics
 from stable_baselines3.common.env_checker import check_env
 
-from rag_mdp.env import RAGEnvironment
-from rag_mdp.synthetic_world import SyntheticWorld
-from policies.fixed_horizon import FixedHorizonPolicy
-from policies.sb3_dqn import train_dqn
+
+repo_root = Path(__file__).resolve().parents[1]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+try:
+    from rag_mdp.env import RAGEnvironment
+    from rag_mdp.synthetic_world import SyntheticWorld
+    from policies.fixed_horizon import FixedHorizonPolicy
+    from policies.sb3_dqn import DQN_KWARGS, train_dqn
+except Exception:
+    raise
 
 
 def run_fixed_policy(env: RAGEnvironment, episodes: int, k: int, trajectories: bool):
@@ -39,6 +49,7 @@ def run_fixed_policy(env: RAGEnvironment, episodes: int, k: int, trajectories: b
                         "entropy": float(info["true_entropy"]),
                         "action": int(action),
                         "reward": float(reward),
+                        "action_cost": float(info["action_cost"]),
                     }
                 )
 
@@ -87,6 +98,7 @@ def run_sb3_policy(
                         "entropy": float(info["true_entropy"]),
                         "action": int(action),
                         "reward": float(reward),
+                        "action_cost": float(info["action_cost"]),
                     }
                 )
 
@@ -126,6 +138,26 @@ def main() -> None:
     if not args.skip_check_env:
         check_env(base_env, warn=True)
     env = RecordEpisodeStatistics(base_env)
+
+    config = {
+        "policy": args.policy,
+        "episodes": args.episodes,
+        "seed": args.seed,
+        "max_steps": args.max_steps,
+        "trajectories": bool(args.trajectories),
+        "action_costs": base_env.action_costs,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "python_version": sys.version.split()[0],
+    }
+    if args.policy == "fixed":
+        config["k"] = args.k
+    else:
+        config["timesteps"] = args.timesteps
+        config["dqn_kwargs"] = DQN_KWARGS
+
+    config_path = outdir / "config.json"
+    with config_path.open("w") as f:
+        json.dump(config, f, indent=2)
 
     if args.policy == "fixed":
         results, traces = run_fixed_policy(

@@ -1,0 +1,15 @@
+{
+  "policy": "fixed",
+  "episodes": 200,
+  "seed": 0,
+  "max_steps": 5,
+  "trajectories": true,
+  "action_costs": {
+    "retrieve": 1.0,
+    "reflect": 0.2,
+    "return": 0.0
+  },
+  "timestamp": "2026-01-19T00:36:29.218999Z",
+  "python_version": "3.13.9",
+  "k": 2
+}

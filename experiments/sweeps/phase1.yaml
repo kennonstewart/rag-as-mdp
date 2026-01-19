@@ -1,0 +1,23 @@
+output:
+  name: phase1
+  root: outputs/sweeps
+
+fixed:
+  episodes: 5000
+  max_steps: 5
+  trajectories: true
+  skip_check_env: true
+
+grid:
+  policy: ["fixed", "sb3_dqn"]
+  k: [2, 4]
+  timesteps: [5000, 10000]
+  seed: [0, 1]
+
+postprocess:
+  analyze: true
+  plot: true
+  summary_outdir: outputs/sweeps/phase1/summary
+  figures_outdir: outputs/sweeps/phase1/figures
+  per_run_plots: true
+  plot_entropy: false

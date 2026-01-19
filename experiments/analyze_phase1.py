@@ -16,6 +16,28 @@ def load_results(path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def flatten_config(config: dict) -> dict:
+    flat = {}
+    for key, value in config.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                flat[f"{key}_{sub_key}"] = sub_value
+        else:
+            flat[key] = value
+    return flat
+
+
+def load_run(run_dir: Path) -> tuple[pd.DataFrame, dict]:
+    results_path = run_dir / "results.jsonl"
+    df = load_results(results_path)
+    config_path = run_dir / "config.json"
+    config = {}
+    if config_path.exists():
+        with config_path.open() as f:
+            config = json.load(f)
+    return df, config
+
+
 def summarize(df: pd.DataFrame) -> dict:
     return {
         "episodes": int(len(df)),
@@ -26,7 +48,7 @@ def summarize(df: pd.DataFrame) -> dict:
     }
 
 
-def plot_entropy_trajectories(trajectories_path: Path, outdir: Path) -> None:
+def plot_entropy_trajectories(trajectories_path: Path, outdir: Path, prefix: str = "") -> None:
     trajectories = []
     with trajectories_path.open() as f:
         for line in f:
@@ -51,30 +73,67 @@ def plot_entropy_trajectories(trajectories_path: Path, outdir: Path) -> None:
     plt.ylabel("Mean entropy")
     plt.title("Entropy trajectory")
     plt.tight_layout()
-    plt.savefig(outdir / "entropy_trajectory.png")
+    filename = "entropy_trajectory.png"
+    if prefix:
+        filename = f"{prefix}_entropy_trajectory.png"
+    plt.savefig(outdir / filename)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Path to results.jsonl")
+    parser.add_argument("--input", help="Path to results.jsonl")
+    parser.add_argument(
+        "--run-dirs",
+        nargs="+",
+        help="One or more run directories containing results.jsonl",
+    )
     parser.add_argument("--outdir", default="outputs/phase1")
     parser.add_argument("--plot-entropy", action="store_true")
     args = parser.parse_args()
 
-    input_path = Path(args.input)
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    df = load_results(input_path)
-    summary = summarize(df)
+    if not args.run_dirs and not args.input:
+        parser.error("--input or --run-dirs is required")
+
+    summaries = []
+    if args.run_dirs:
+        for run_dir in [Path(p) for p in args.run_dirs]:
+            results_path = run_dir / "results.jsonl"
+            if not results_path.exists():
+                print(f"Skipping {run_dir}: missing results.jsonl")
+                continue
+            df, config = load_run(run_dir)
+            summary = summarize(df)
+            summary["run_dir"] = str(run_dir)
+            if config:
+                summary.update(config)
+                flat = flatten_config(config)
+                for key, value in flat.items():
+                    df[key] = value
+            summaries.append(summary)
+
+            if args.plot_entropy:
+                trajectories_path = run_dir / "trajectories.jsonl"
+                if trajectories_path.exists():
+                    plot_entropy_trajectories(trajectories_path, outdir, prefix=run_dir.name)
+    else:
+        input_path = Path(args.input)
+        df = load_results(input_path)
+        summary = summarize(df)
+        summaries.append(summary)
+
+        trajectories_path = input_path.parent / "trajectories.jsonl"
+        if args.plot_entropy and trajectories_path.exists():
+            plot_entropy_trajectories(trajectories_path, outdir)
 
     summary_path = outdir / "summary.json"
     with summary_path.open("w") as f:
-        json.dump(summary, f, indent=2)
-
-    trajectories_path = input_path.parent / "trajectories.jsonl"
-    if args.plot_entropy and trajectories_path.exists():
-        plot_entropy_trajectories(trajectories_path, outdir)
+        if len(summaries) == 1:
+            json.dump(summaries[0], f, indent=2)
+        else:
+            json.dump(summaries, f, indent=2)
 
     print(f"Wrote summary to {summary_path}")
 

@@ -1,0 +1,12 @@
+{
+  "episodes": 200,
+  "max_steps": 5,
+  "seed": 0,
+  "confidence_threshold": 0.5,
+  "lm_provider": "openai",
+  "lm_model": "gpt-4o-mini",
+  "temperature": 0.2,
+  "max_tokens": 256,
+  "save_program": false,
+  "timestamp": "2026-01-19T00:42:11.619631Z"
+}

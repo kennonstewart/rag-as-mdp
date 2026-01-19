@@ -1,0 +1,21 @@
+{
+  "sweep_config": "experiments/sweeps/phase2.yaml",
+  "sweep_label": "k=10__policy=dspy_cot__seed=0__timesteps=5000__134ccd66",
+  "sweep_name": "phase2",
+  "grid_params": {
+    "k": 10,
+    "policy": "dspy_cot",
+    "seed": 0,
+    "timesteps": 5000
+  },
+  "fixed_params": {
+    "episodes": 200,
+    "max_steps": 5,
+    "trajectories": true,
+    "skip_check_env": true,
+    "lm_provider": "openai",
+    "lm_model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "max_tokens": 256
+  }
+}

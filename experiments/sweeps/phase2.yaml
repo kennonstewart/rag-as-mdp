@@ -1,0 +1,27 @@
+output:
+  name: phase2
+  root: outputs/sweeps
+
+fixed:
+  episodes: 200
+  max_steps: 5
+  trajectories: true
+  skip_check_env: true
+  lm_provider: openai
+  lm_model: gpt-4o-mini
+  temperature: 0.2
+  max_tokens: 256
+
+grid:
+  policy: ["fixed", "sb3_dqn", "dspy_cot", "dspy_react"]
+  k: [2, 4, 6, 10]
+  timesteps: [5000]
+  seed: [0]
+
+postprocess:
+  analyze: true
+  plot: true
+  summary_outdir: outputs/sweeps/phase2/summary
+  figures_outdir: outputs/sweeps/phase2/figures
+  per_run_plots: true
+  plot_entropy: true
